@@ -1,10 +1,11 @@
 class AppExceptions implements Exception {
-  String title;
-  String msg;
+  final String title;
+  final String msg;
 
   AppExceptions({required this.title, required this.msg});
 
-  String toErrorMsg() {
+  @override
+  String toString() {
     return "$title: $msg";
   }
 }

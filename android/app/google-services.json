@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "842021422503",
+    "project_id": "tensai-ai-app",
+    "storage_bucket": "tensai-ai-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:842021422503:android:e2615b4e6f399e518fa282",
+        "android_client_info": {
+          "package_name": "com.example.tensai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIm_ptVxk1O5AGaGaICsiXoUSvz4EHmag"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

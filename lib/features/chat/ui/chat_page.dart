@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import 'package:provider/provider.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:tensai/data/models/msg_model.dart';
-import 'package:tensai/features/chat/provider/msg_provider.dart';
-import 'package:tensai/features/news/bloc/headline_bloc.dart';
-import 'package:tensai/features/news/ui/headline_screen.dart';
+import 'package:tensai/features/chat/bloc/chat_bloc.dart';
+import 'package:tensai/features/chat/bloc/chat_event.dart';
+import 'package:tensai/features/chat/bloc/chat_state.dart';
+import 'package:tensai/features/chat/ui/widgets/chat_drawer.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -20,7 +19,15 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController controller = TextEditingController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DateFormat dtFormat = DateFormat.yMMM();
+
+  final List<String> availableModels = [
+    "gpt-4.1-mini",
+    "gpt-3.5-turbo",
+    "gpt-4o",
+    "gpt-4-turbo",
+  ];
 
   @override
   void dispose() {
@@ -31,23 +38,33 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const ChatDrawer(),
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Column(
           children: [
+            /// APNI_APP_BAR
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                 /* GestureDetector(
-                    onTap: () {},
-                    child: const Icon(RemixIcons.menu_2_line, color: Colors.white),
-                  ),*/
+                  GestureDetector(
+                    onTap: () {
+                      _scaffoldKey.currentState?.openDrawer();
+                    },
+                    child: const Icon(Remix.menu_2_line, color: Colors.white),
+                  ),
                   const SizedBox(width: 16),
-
-                  Text("Tensai", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22,),),
+                  Text(
+                    "Tensai",
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                  ),
                   const SizedBox(width: 12),
-
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
@@ -62,63 +79,75 @@ class _ChatPageState extends State<ChatPage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(RemixIcons.robot_2_line, color: Colors.white70, size: 16),
+                            const Icon(Remix.robot_2_line, color: Colors.white70, size: 16),
                             const SizedBox(width: 6),
-                            Consumer<MessageProvider>(
-                                builder: (context, provider, child) {
-                                  return Expanded(
-                                    child: Text(
-                                      provider.currentModel,
-                                      style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  );
-                                }
+                            BlocBuilder<ChatBloc, ChatState>(
+                              builder: (context, state) {
+                                String currentModel = "gpt-4-turbo"; // Fallback
+                                if (state is ChatLoaded) currentModel = state.currentModel;
+                                else if (state is ChatLoading) currentModel = state.currentModel;
+                                else if (state is ChatInitial) currentModel = state.currentModel;
+
+                                return Expanded(
+                                  child: Text(
+                                    currentModel,
+                                    style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              },
                             ),
-                            const Icon(RemixIcons.arrow_down_s_line, color: Colors.white70, size: 16),
+                            const Icon(Remix.arrow_down_s_line, color: Colors.white70, size: 16),
                           ],
                         ),
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 12),
-                  InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MultiBlocProvider(
-                              providers: [
-                                BlocProvider(
-                                  create: (_) => HeadlineBloc(),
-                                ),
-                              ],
-                              child: HeadlinePage(),
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Icon(LucideIcons.newspaper, color: Colors.white)
-                  ),
                 ],
               ),
             ),
 
-            Expanded(child: Consumer<MessageProvider>(
-              builder: (context, provider, child) {
-                var listMsg = provider.fetchAllMessages();
-                return ListView.builder(
-                  itemCount: listMsg.length,
-                  itemBuilder: (_, index) {
-                    return listMsg[index].sendId == 0
-                        ? userChatBox(listMsg[index])
-                        : botChatBox(listMsg[index]);
-                  },
-                );
-              },
-            )),
+            /// chatvew
+            Expanded(
+              child: BlocBuilder<ChatBloc, ChatState>(
+                builder: (context, state) {
+                  List<MessageModel> listMsg = [];
+                  if (state is ChatLoaded) listMsg = state.messages;
+                  else if (state is ChatLoading) listMsg = state.messages;
+                  else if (state is ChatInitial) listMsg = state.messages;
 
+                  if (listMsg.isEmpty) {
+                    return Center(
+                      child: Text(
+                        "How can I help you today?",
+                        style: GoogleFonts.poppins(color: Colors.white54, fontSize: 16),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: listMsg.length + (state is ChatLoading ? 1 : 0),
+                    itemBuilder: (_, index) {
+                      if (index == listMsg.length && state is ChatLoading) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: CircularProgressIndicator(color: Colors.blueAccent),
+                          ),
+                        );
+                      }
+                      return listMsg[index].sendId == 0
+                          ? userChatBox(listMsg[index])
+                          : botChatBox(listMsg[index]);
+                    },
+                  );
+                },
+              ),
+            ),
+
+            /// Input Area
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -138,6 +167,9 @@ class _ChatPageState extends State<ChatPage> {
                         controller: controller,
                         style: GoogleFonts.poppins(color: Colors.white, fontSize: 15),
                         cursorColor: Colors.white,
+                        maxLines: null, // Allows multiline input
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (value) => _sendMessage(),
                         decoration: InputDecoration(
                           hintText: "Ask anything...",
                           hintStyle: GoogleFonts.poppins(color: Colors.grey, fontSize: 15),
@@ -149,16 +181,12 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   const SizedBox(width: 12),
                   GestureDetector(
-                    onTap: () {
-                      if(controller.text.trim().isEmpty) return;
-                      Provider.of<MessageProvider>(context, listen: false).sendMessage(message: controller.text.toString());
-                      controller.clear();
-                    },
+                    onTap: _sendMessage,
                     child: Container(
                       height: 48,
                       width: 48,
                       decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: const Icon(RemixIcons.send_plane_fill, size: 20, color: Colors.black),
+                      child: const Icon(Remix.send_plane_fill, size: 20, color: Colors.black),
                     ),
                   ),
                 ],
@@ -170,20 +198,24 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  void _sendMessage() {
+    if (controller.text.trim().isEmpty) return;
+    context.read<ChatBloc>().add(SendMessageEvent(controller.text.toString()));
+    controller.clear();
+  }
+
   Widget userChatBox(MessageModel msgModel) {
     var time = dtFormat.format(DateTime.fromMillisecondsSinceEpoch(int.parse(msgModel.sentAt!)));
 
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         margin: const EdgeInsets.only(top: 8, bottom: 8, left: 60, right: 12),
-
+        // BoxConstraints handles responsive bubble sizing dynamically
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.78,
         ),
-
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
@@ -201,10 +233,9 @@ class _ChatPageState extends State<ChatPage> {
             topLeft: Radius.circular(18),
             topRight: Radius.circular(18),
             bottomLeft: Radius.circular(18),
-            bottomRight: Radius.circular(4), // Tail effect
+            bottomRight: Radius.circular(4),
           ),
         ),
-
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -274,9 +305,14 @@ class _ChatPageState extends State<ChatPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       context: context,
-      builder: (context) {
-        return Consumer<MessageProvider>(
-          builder: (context, provider, child) {
+      builder: (bottomSheetContext) {
+        return BlocBuilder<ChatBloc, ChatState>(
+          builder: (context, state) {
+            String currentModel = "gpt-4-turbo";
+            if (state is ChatLoaded) currentModel = state.currentModel;
+            else if (state is ChatLoading) currentModel = state.currentModel;
+            else if (state is ChatInitial) currentModel = state.currentModel;
+
             return Container(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Column(
@@ -288,8 +324,8 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   const SizedBox(height: 10),
                   const Divider(color: Colors.white24),
-                  ...provider.availableModels.map((model) {
-                    bool isSelected = provider.currentModel == model;
+                  ...availableModels.map((model) {
+                    bool isSelected = currentModel == model;
                     return ListTile(
                       title: Text(
                         model,
@@ -299,14 +335,14 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                       ),
                       trailing: isSelected
-                          ? const Icon(RemixIcons.check_line, color: Colors.greenAccent)
+                          ? const Icon(Remix.check_line, color: Colors.greenAccent)
                           : null,
                       onTap: () {
-                        provider.setModel(model);
-                        Navigator.pop(context);
+                        context.read<ChatBloc>().add(UpdateModelEvent(model));
+                        Navigator.pop(bottomSheetContext);
                       },
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             );

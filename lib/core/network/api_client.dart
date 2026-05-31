@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:tensai/core/constants/api_endpoints.dart';
 import 'api_exceptions.dart';
 
 class ApiClient {
@@ -9,69 +8,41 @@ class ApiClient {
   factory ApiClient() => _instance;
   ApiClient._internal();
 
-  Future<dynamic> getApi({required String url}) async {
-    var uri = Uri.parse(url);
-    try {
-      var res = await http.get(uri);
-      return _returnJsonResponse(res);
-    } on SocketException catch (_) {
-      throw FetchDataException(errorMsg: "No Internet!!");
-    }
-  }
-
-  Future<dynamic> postApi({required String url, Map<String, dynamic>? bodyParams}) async {
-    var uri = Uri.parse(url);
-    try {
-      var res = await http.post(uri, body: bodyParams ?? {});
-      return _returnJsonResponse(res);
-    } on SocketException catch (_) {
-      throw FetchDataException(errorMsg: "No Internet!!");
-    }
-  }
-
-  Future<dynamic> sendMsgApi({required String msg, required String model}) async {
+  Future<dynamic> post({required String url, required Map<String, String> headers, required Map<String, dynamic> body}) async {
     try {
       var response = await http.post(
-        Uri.parse(ApiEndpoints.chatAiUrl),
-        headers: {
-          "Authorization": "Bearer ${ApiEndpoints.openAiApiKey}",
-          "Content-Type": "application/json"
-        },
-        body: jsonEncode({
-          "model": model,
-          "input": msg,
-        }),
+        Uri.parse(url),
+        headers: headers,
+        body: jsonEncode(body),
       );
-
-      print(response.body.toString());
-
-      if (response.statusCode == 200) {
-        var data = jsonDecode(response.body);
-        if (data['error'] != null) {
-          throw HttpException(data['error']['message']);
-        }
-        return data;
-      } else {
-        throw HttpException("Error: ${response.statusCode}");
-      }
+      return _returnJsonResponse(response);
+    } on SocketException {
+      throw FetchDataException(errorMsg: "No Internet Connection!");
+    } on AppExceptions {
+      rethrow;
     } catch (e) {
-      throw HttpException(e.toString());
+      throw FetchDataException(errorMsg: e.toString());
     }
   }
 
   dynamic _returnJsonResponse(http.Response response) {
+    var responseData = jsonDecode(response.body);
     switch (response.statusCode) {
       case 200:
-        return jsonDecode(response.body);
+        if (responseData['error'] != null) {
+          throw BadRequestException(errorMsg: responseData['error']['message']);
+        }
+        return responseData;
       case 400:
-        throw BadRequestException(errorMsg: response.body.toString());
+        throw BadRequestException(errorMsg: responseData['error']['message'] ?? "Invalid Request");
       case 401:
       case 403:
-        throw UnauthorisedException(errorMsg: response.body.toString());
+        throw UnauthorisedException(errorMsg: "Unauthorized: Check API Key");
       case 500:
       default:
-        throw FetchDataException(
-            errorMsg: 'Error occurred while Communication with Server with StatusCode : ${response.statusCode}');
+        throw FetchDataException(errorMsg: 'Server error: ${response.statusCode}');
     }
   }
+
+
 }
