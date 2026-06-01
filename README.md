@@ -141,6 +141,8 @@ GitHub:
 https://github.com/phogatankit
 
 LinkedIn:
-https://linkedin.com/in/ankit-phogat
+www.linkedin.com/in/phogat-ankit
+
+
 
 ##
