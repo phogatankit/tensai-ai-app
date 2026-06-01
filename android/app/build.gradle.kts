@@ -11,7 +11,9 @@ plugins {
 android {
     namespace = "com.example.tensai"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+
+    // 1. Updated NDK version to fix the Firebase/plugin dependencies
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -27,7 +29,10 @@ android {
         applicationId = "com.example.tensai"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+
+        // 2. Increased minimum SDK to 23 to satisfy firebase_auth requirements
+        minSdk = 23
+
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

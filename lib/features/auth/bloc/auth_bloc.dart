@@ -22,12 +22,33 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginRequested>((event, emit) async {
       emit(AuthLoading());
       try {
-        await _auth.signInWithEmailAndPassword(email: event.email.trim(), password: event.password.trim());
+        await _auth.signInWithEmailAndPassword(
+          email: event.email.trim(),
+          password: event.password.trim(),
+        );
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
         emit(Authenticated());
       } on FirebaseAuthException catch (e) {
         emit(AuthError(e.message ?? "Authentication Failed"));
+      } catch (e) {
+        emit(AuthError("An unexpected error occurred."));
+      }
+    });
+
+    on<SignUpRequested>((event, emit) async {
+      emit(AuthLoading());
+      try {
+        await _auth.createUserWithEmailAndPassword(
+          email: event.email.trim(),
+          password: event.password.trim(),
+        );
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+
+        emit(Authenticated());
+      } on FirebaseAuthException catch (e) {
+        emit(AuthError(e.message ?? "Sign Up Failed"));
       } catch (e) {
         emit(AuthError("An unexpected error occurred."));
       }
